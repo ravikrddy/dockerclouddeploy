@@ -1,3 +1,3 @@
 FROM nginx
-RUN echo FIRSTDEPLOY > /usr/share/nginx/html/index.html
+RUN echo SECONDDEPLOY > /usr/share/nginx/html/index.html
 EXPOSE 80
