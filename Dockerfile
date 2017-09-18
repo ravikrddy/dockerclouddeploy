@@ -1,3 +1,3 @@
 FROM nginx
-RUN echo FOURTHDEPLOY > /usr/share/nginx/html/index.html
+RUN curl https://citrix.com > /usr/share/nginx/html/index.html
 EXPOSE 80
