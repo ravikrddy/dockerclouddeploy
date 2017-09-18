@@ -1,22 +1,41 @@
 #FROM nginx
 #RUN echo Hello CITRIX! > /usr/share/nginx/html/index.html
 #EXPOSE 80
-FROM nginx:1.11.8-alpine 
+FROM yaronr/openjdk-7-jre
+MAINTAINER yaronr
 
-LABEL maintainer="mritd <mritd1234@gmail.com>"
+ENV TOMCATVER 7.0.57
+ENV MYSQL_CONNECTOR_JAVA_VER 5.1.34
+ENV TOMCAT_HOME /opt/tomcat
 
-ENV TZ 'Asia/Shanghai'
+RUN (wget --progress=bar:force --retry-connrefused -t 5 -O /tmp/tomcat7.tar.gz http://apache.mivzakim.net/tomcat/tomcat-7/v${TOMCATVER}/bin/apache-tomcat-${TOMCATVER}.tar.gz  && \
+    cd /opt && \
+    tar zxf /tmp/tomcat7.tar.gz && \
+    mv /opt/apache-tomcat* ${TOMCAT_HOME} && \
+    rm /tmp/tomcat7.tar.gz) && \
+    rm -rf ${TOMCAT_HOME}/webapps/ && \
+    mkdir ${TOMCAT_HOME}/webapps && \
+    wget --progress=bar:force --retry-connrefused -t 5 -O /tmp/mysql-connector-java.tar.gz http://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-${MYSQL_CONNECTOR_JAVA_VER}.tar.gz && \
+    tar zxf /tmp/mysql-connector-java.tar.gz -C /tmp && \
+    rm /tmp/mysql-connector-java.tar.gz && \
+    mv /tmp/mysql-connector-java-${MYSQL_CONNECTOR_JAVA_VER}/mysql-connector-java-${MYSQL_CONNECTOR_JAVA_VER}-bin.jar /opt/tomcat/lib/ && \
+    rm -rf /tmp/mysql-connector-java-${MYSQL_CONNECTOR_JAVA_VER}
+    
+# 'Host manager' and 'manager' examples etc tomcat apps are are removed for security hardening
 
-RUN apk upgrade --update \
-    && apk add bash tzdata curl wget ca-certificates \
-    && ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
-    && echo "Asia/Shanghai" > /etc/timezone \
-    && rm -rf /var/cache/apk/*
+ADD ./run.sh /usr/local/bin/run
 
-COPY index.html /usr/share/nginx/html/index.html
+# RUN mv /etc/cron.daily/logrotate /etc/cron.hourly/logrotate
+ADD logrotate /etc/logrotate.d/tomcat7
+RUN chmod 644 /etc/logrotate.d/tomcat7
 
-COPY docker.png /usr/share/nginx/html/docker.png
+# User limits
+RUN sed -i.bak '/\# End of file/ i\\# Following 2 lines added by Dockerfile' /etc/security/limits.conf && \
+	sed -i.bak '/\# End of file/ i\\*                hard    nofile          65536' /etc/security/limits.conf && \
+	sed -i.bak '/\# End of file/ i\\*                soft    nofile          65536\n' /etc/security/limits.conf
 
-EXPOSE 80 443
+EXPOSE 8080
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["/bin/bash", "-e", "/usr/local/bin/run"]
+
+ADD ./server.xml ${TOMCAT_HOME}/conf/
